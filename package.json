@@ -1,0 +1,14 @@
+{
+    "name" : "ball-knowledge-bulletin",
+    "version" : "1.0.0",
+    "private" : true,
+    "type" : "commonjs",
+    "workspaces" : ["client", "server"],
+    "scripts": 
+    {
+        "build" : "npm run build --workspace client",
+        "start" : "npm run start --workspace server",
+        "test" : "npm test --workspace server"
+    },
+    "engines" : {"node": ">=24"}
+}
