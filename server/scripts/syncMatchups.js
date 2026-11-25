@@ -1,9 +1,7 @@
 import mongoose from "mongoose"
-import { syncMatchups } from "../src/services/matchups.js"
+import { syncSeason } from "../src/services/matchups.js"
 
 const FAILURE_EXIT_CODE = 1
-const FIRST_WEEK = 1
-const REGULAR_SEASON_WEEKS = 18
 
 const { MONGODB_URI } = process.env
 const season = Number(process.argv[2])   
@@ -22,11 +20,8 @@ if(!season)
 
 await mongoose.connect(MONGODB_URI)
 
-for (let week = FIRST_WEEK; week <= REGULAR_SEASON_WEEKS; week++)
-{
-    const count = await syncMatchups(season, week)
-    console.log(`Week ${week}: synced ${count} matchups`)
-}
+const count = await syncSeason(season)
+console.log(`Synced ${count} matchups for ${season}`)
 
 await mongoose.disconnect()
 
