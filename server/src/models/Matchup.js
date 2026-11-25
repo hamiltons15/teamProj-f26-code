@@ -1,4 +1,5 @@
 import mongoose from "mongoose"
+import { League, LEAGUES } from "../domain/League.js"
 
 const matchupSchema = new mongoose.Schema
 (
@@ -10,8 +11,9 @@ const matchupSchema = new mongoose.Schema
         },
         league:
         {
-            type : String, 
-            default : "nfl",
+            type : String,
+            enum : LEAGUES,
+            default : League.NFL,
             required : true
         },
         season:
