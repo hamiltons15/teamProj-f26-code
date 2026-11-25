@@ -1,5 +1,6 @@
 import mongoose from "mongoose"
 import { League, LEAGUES } from "../domain/League.js"
+import { MATCHUP_STATUSES } from "../domain/MatchupStatus.js"
 
 const matchupSchema = new mongoose.Schema
 (
@@ -56,7 +57,7 @@ const matchupSchema = new mongoose.Schema
         status:
         {
             type : String,
-            enum : ["scheduled", "in_progress", "final"],
+            enum : MATCHUP_STATUSES,
             required : true
         }
     }
