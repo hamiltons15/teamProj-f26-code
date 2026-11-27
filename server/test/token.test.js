@@ -3,9 +3,11 @@ import assert from "node:assert/strict"
 import jwt from "jsonwebtoken"
 import { getJwtSecret, createToken, verifyToken } from "../src/services/token.js"
 
+// Use a test secret and user ID instead of real account information
 const SECRET = "0".repeat(64)
 const USER_ID = "507f1f77bcf86cd799439011"
 
+// Check that only valid secrets are accepted
 test("JWT secret validation", () => {
     for(const secret of ["", "invalid", "z".repeat(64)])
     {
@@ -16,6 +18,7 @@ test("JWT secret validation", () => {
     assert.equal(getJwtSecret(), SECRET)
 })
 
+// Check that the token contains the correct user ID and expires after 8 hours
 test("JWT claims and verification", () => {
     process.env.JWT_SECRET = SECRET
     const token = createToken(USER_ID)
@@ -27,6 +30,7 @@ test("JWT claims and verification", () => {
     assert.throws(() => verifyToken(token.slice(0, -2) + "!!"))
 })
 
+// Make sure tokens with invalid claims or algorithms are rejected
 test("JWT rejects expired tokens, wrong claims and algorithms", () => {
     process.env.JWT_SECRET = SECRET
     const options = { algorithm : "HS256", issuer : "ball-knowledge-bulletin-api",

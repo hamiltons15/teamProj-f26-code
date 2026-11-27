@@ -10,6 +10,7 @@ export function createApp(){
     app.use(cors({ origin : process.env.CLIENT_ORIGIN }))
     app.use(express.json({ limit: BODY_LIMIT }))
 
+    // Set up the routes for registration, login, and user identification
     app.use("/api/auth", authRouter)
 
     app.get("/api/health", (request, response) => {
@@ -19,6 +20,7 @@ export function createApp(){
         response.json({ status : "ok", db})
     })
 
+    // Return an error if the JSON body is invalid or too large
     app.use((error, request, response, next) => {
         if(error.type === "entity.parse.failed")
         {

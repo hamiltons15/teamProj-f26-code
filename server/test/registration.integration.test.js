@@ -7,18 +7,22 @@ import { User } from "../src/models/User.js"
 import { verifyPassword } from "../src/services/password.js"
 import { verifyToken } from "../src/services/token.js"
 
+// Test the registration endpoint using a separate database
 test("registration integration", async (t) => {
+    // Use a random test secret and database so existing users are not affected
     process.env.JWT_SECRET = randomBytes(32).toString("hex")
     const database = "bkb_auth_test_" + Date.now() + "_" + randomBytes(4).toString("hex")
     const running = await startServer({
         port : 0,
         mongoUri : "mongodb://127.0.0.1:27017/" + database
     })
+    // Close the server and database connection after testing
     t.after(async () => {
         await running.close()
     })
 
     const base = "http://127.0.0.1:" + running.port
+    // Send a JSON request to the authentication API
     const register = (body) => fetch(base + "/api/auth/register", {
         method : "POST",
         headers : { "Content-Type" : "application/json" },
@@ -41,6 +45,7 @@ test("registration integration", async (t) => {
         assert.equal(body.user.username, "alice_1")
         assert.equal(verifyToken(body.token).sub, body.user.id)
 
+        // Check the stored hash and make sure it is hidden from normal queries
         const stored = await User.findById(body.user.id).select("+passwordHash")
         assert.equal(stored.username, "alice_1")
         assert.notEqual(stored.passwordHash, password)
@@ -79,6 +84,7 @@ test("registration integration", async (t) => {
     })
 
     await t.test("rejects concurrent duplicate registrations", async () => {
+        // Send two registration requests at the same time to check for duplicate accounts
         const responses = await Promise.all([
             register({ username : "RaceUser", password : "ExamplePassword123" }),
             register({ username : " raceuser ", password : "ExamplePassword456" })
@@ -99,6 +105,7 @@ test("registration integration", async (t) => {
         assert.equal(await User.countDocuments({ username : "raceuser" }), 1)
     })
 
+    // Disconnect MongoDB to make sure the endpoint returns a 503 error
     await t.test("rejects registration when database is disconnected", async () => {
         await mongoose.disconnect()
         const response = await register({ username : "offline_user", password : "ExamplePassword123" })

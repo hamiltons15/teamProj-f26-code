@@ -2,6 +2,7 @@ import test from "node:test"
 import assert from "node:assert/strict"
 import { hashPassword, verifyPassword } from "../src/services/password.js"
 
+// Make sure the same password produces different hashes and can still be verified
 test("passwords are salted and verified", async () => {
     const password = "ExamplePassword"
     const first = await hashPassword(password)

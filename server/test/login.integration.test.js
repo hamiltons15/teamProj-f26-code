@@ -6,23 +6,28 @@ import { startServer } from "../src/server.js"
 import { User } from "../src/models/User.js"
 import { verifyToken } from "../src/services/token.js"
 
+// Test the login endpoint using a separate database
 test("login integration", async (t) => {
+    // Use a random test secret and database so existing users are not affected
     process.env.JWT_SECRET = randomBytes(32).toString("hex")
     const database = "bkb_auth_test_" + Date.now() + "_" + randomBytes(4).toString("hex")
     const running = await startServer({
         port : 0,
         mongoUri : "mongodb://127.0.0.1:27017/" + database
     })
+    // Close the server and database connection after testing
     t.after(async () => {
         await running.close()
     })
 
     const base = "http://127.0.0.1:" + running.port
+    // Send a JSON request to the authentication API
     const post = (path, body) => fetch(base + "/api/auth/" + path, {
         method : "POST",
         headers : { "Content-Type" : "application/json" },
         body : JSON.stringify(body)
     })
+    // Register a test account to use for the login tests
     const password = "ExamplePassword123"
     const registered = await post("register", { username : "LoginUser", password })
     assert.equal(registered.status, 201)
@@ -67,6 +72,7 @@ test("login integration", async (t) => {
     })
 
     await t.test("rejects passwords exceeding bcrypt byte limit", async () => {
+        // Check that a 72-byte password works but longer passwords are rejected
         const boundaryPassword = "a".repeat(72)
         const response = await post("register", { username : "boundary_user", password : boundaryPassword })
         assert.equal(response.status, 201)
@@ -84,6 +90,7 @@ test("login integration", async (t) => {
     })
 
     await t.test("login does not create or modify accounts", async () => {
+        // Compare the account before and after login to make sure it was not changed
         const before = await User.findById(account.user.id).select("+passwordHash").lean()
         const response = await post("login", { username : "loginuser", password })
         assert.equal(response.status, 200)
@@ -93,6 +100,7 @@ test("login integration", async (t) => {
         assert.equal(await User.countDocuments(), 2)
     })
 
+    // Disconnect MongoDB to make sure the endpoint returns a 503 error
     await t.test("rejects login when database is disconnected", async () => {
         await mongoose.disconnect()
         const response = await post("login", { username : "loginuser", password })

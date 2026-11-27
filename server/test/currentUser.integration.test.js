@@ -7,26 +7,32 @@ import { startServer } from "../src/server.js"
 import { User } from "../src/models/User.js"
 import { createToken } from "../src/services/token.js"
 
+// Test the current user endpoint using a separate database
 test("current user integration", async (t) => {
+    // Use a random test secret and database so existing users are not affected
     process.env.JWT_SECRET = randomBytes(32).toString("hex")
     const database = "bkb_auth_test_" + Date.now() + "_" + randomBytes(4).toString("hex")
     const running = await startServer({
         port : 0,
         mongoUri : "mongodb://127.0.0.1:27017/" + database
     })
+    // Close the server and database connection after testing
     t.after(async () => {
         await running.close()
     })
 
     const base = "http://127.0.0.1:" + running.port
+    // Send a JSON request to the authentication API
     const post = (path, body) => fetch(base + "/api/auth/" + path, {
         method : "POST",
         headers : { "Content-Type" : "application/json" },
         body : JSON.stringify(body)
     })
+    // Send a request to the protected endpoint with an optional authorization header
     const me = (authorization) => fetch(base + "/api/auth/me", {
         headers : authorization === undefined ? {} : { Authorization : authorization }
     })
+    // Register and log in a test user to get both tokens
     const credentials = { username : "CurrentUser", password : "ExamplePassword123" }
     const registered = await post("register", credentials)
     assert.equal(registered.status, 201)
@@ -34,6 +40,7 @@ test("current user integration", async (t) => {
     const loggedIn = await post("login", credentials)
     assert.equal(loggedIn.status, 200)
     const login = await loggedIn.json()
+    // Create test tokens with different claims and signing options
     const sign = (claims = {}, options = {}, secret = process.env.JWT_SECRET) =>
         jwt.sign({ sub : account.user.id, ...claims }, secret, {
             algorithm : "HS256", issuer : "ball-knowledge-bulletin-api",
@@ -62,6 +69,7 @@ test("current user integration", async (t) => {
     })
 
     await t.test("rejects malformed, tampered and incorrectly signed tokens", async () => {
+        // Change the token signature to test tampering
         const parts = login.token.split(".")
         parts[2] = (parts[2][0] === "a" ? "b" : "a") + parts[2].slice(1)
         for(const token of ["not-a-jwt", parts.join("."), sign({}, {}, randomBytes(32).toString("hex"))])
@@ -110,12 +118,14 @@ test("current user integration", async (t) => {
         assert.equal(response.status, 401)
         assert.deepEqual(await response.json(), { error : "Authenticated user no longer exists." })
 
+        // Delete the test user and check that their token no longer works on this endpoint
         await User.deleteOne({ _id : account.user.id })
         const deleted = await me("Bearer " + login.token)
         assert.equal(deleted.status, 401)
         assert.deepEqual(await deleted.json(), { error : "Authenticated user no longer exists." })
     })
 
+    // Disconnect MongoDB to make sure the endpoint returns a 503 error
     await t.test("rejects current user lookup when database is disconnected", async () => {
         await mongoose.disconnect()
         const response = await me("Bearer " + login.token)

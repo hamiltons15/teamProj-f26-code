@@ -3,6 +3,7 @@ import jwt from "jsonwebtoken"
 const ISSUER = "ball-knowledge-bulletin-api"
 const AUDIENCE = "ball-knowledge-bulletin-client"
 
+// Get the JWT secret and make sure it is a valid 64-character hex string
 export function getJwtSecret()
 {
     const secret = process.env.JWT_SECRET
@@ -13,12 +14,14 @@ export function getJwtSecret()
     return secret
 }
 
+// Create a token containing the user ID that expires after 8 hours
 export function createToken(userId)
 {
     return jwt.sign({ sub : userId.toString() }, getJwtSecret(),
         { algorithm : "HS256", expiresIn : "8h", issuer : ISSUER, audience : AUDIENCE })
 }
 
+// Verify the token signature, expiration, issuer, and audience
 export function verifyToken(token)
 {
     return jwt.verify(token, getJwtSecret(),

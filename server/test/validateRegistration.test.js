@@ -2,12 +2,14 @@ import test from "node:test"
 import assert from "node:assert/strict"
 import { validateRegistration } from "../src/domain/validateRegistration.js"
 
+// Check valid inputs including passwords at the bcrypt byte limit
 test("registration accepts normalized usernames and valid passwords", () => {
     assert.equal(validateRegistration(" Alice_1 ", "12345678"), null)
     assert.equal(validateRegistration("alice", "a".repeat(72)), null)
     assert.equal(validateRegistration("alice", "é".repeat(36)), null)
 })
 
+// Make sure invalid usernames and passwords are rejected
 test("registration rejects invalid inputs", () => {
     for(const username of [null, "", "ab", "a".repeat(31), "bad name", "bad-name"])
     {

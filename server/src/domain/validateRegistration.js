@@ -1,3 +1,4 @@
+// Check that the username and password meet the registration requirements
 export function validateRegistration(username, password)
 {
     if(typeof username !== "string" || typeof password !== "string")
@@ -5,6 +6,7 @@ export function validateRegistration(username, password)
         return "Username and password are required."
     }
 
+    // Remove extra spaces and convert the username to lowercase
     const normalizedUsername = username.trim().toLowerCase()
     if(!/^[a-z0-9_]{3,30}$/.test(normalizedUsername))
     {
@@ -14,6 +16,7 @@ export function validateRegistration(username, password)
     {
         return "Password must be at least 8 characters."
     }
+    // Bcrypt only uses the first 72 bytes of a password
     if(Buffer.byteLength(password, "utf8") > 72)
     {
         return "Password must not exceed 72 UTF-8 bytes."
