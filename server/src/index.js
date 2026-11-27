@@ -1,4 +1,6 @@
 import { startServer } from "./server.js";
+import { startSportsSync } from "./services/sportsSync.js"
+import { currentSeason } from "./domain/Season.js"
 
 const DEFAULT_PORT = 3001
 const FAILURE_EXIT_CODE = 1
@@ -19,3 +21,5 @@ const running = await startServer(
 )
 console.log("MongoDB connected")
 console.log(`API listening on port ${running.port}`)
+
+startSportsSync(currentSeason())
