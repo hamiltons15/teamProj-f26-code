@@ -1,5 +1,6 @@
 import { Router } from "express"
 import { User } from "../models/User.js"
+import { requireAuth } from "../middleware/auth.js"
 import { requireDatabase } from "../middleware/requireDatabase.js"
 import { validateRegistration } from "../domain/validateRegistration.js"
 import { hashPassword, verifyPassword } from "../services/password.js"
@@ -75,5 +76,24 @@ authRouter.post("/login", requireDatabase, async (request, response) => {
     catch(error)
     {
         return response.status(500).json({ error : "Unable to log in." })
+    }
+})
+
+authRouter.get("/me", requireDatabase, requireAuth, async (request, response) => {
+    try
+    {
+        const user = await User.findById(request.userId)
+        if(!user)
+        {
+            return response.status(401).json({ error : "Authenticated user no longer exists." })
+        }
+
+        return response.status(200).json({
+            user : { id : user.id, username : user.username }
+        })
+    }
+    catch(error)
+    {
+        return response.status(500).json({ error : "Unable to retrieve current user." })
     }
 })
