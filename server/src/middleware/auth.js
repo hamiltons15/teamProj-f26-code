@@ -1,5 +1,6 @@
 import mongoose from "mongoose"
 import { verifyToken } from "../services/token.js"
+import { HttpStatus } from "../http/status.js"
 
 // Verify the JWT before allowing access to a protected route
 export function requireAuth(request, response, next)
@@ -9,7 +10,7 @@ export function requireAuth(request, response, next)
     const match = typeof authorization === "string" && /^Bearer +([^\s]+)$/i.exec(authorization)
     if(!match)
     {
-        return response.status(401).json({ error : "Authentication required." })
+        return response.status(HttpStatus.UNAUTHORIZED).json({ error : "Authentication required." })
     }
 
     try
@@ -19,7 +20,7 @@ export function requireAuth(request, response, next)
         if(typeof decoded.sub !== "string" || !mongoose.isObjectIdOrHexString(decoded.sub) ||
             !Number.isFinite(decoded.exp))
         {
-            return response.status(401).json({ error : "Invalid authentication token." })
+            return response.status(HttpStatus.UNAUTHORIZED).json({ error : "Invalid authentication token." })
         }
 
         // Store the user ID so the route can identify the user
@@ -30,9 +31,9 @@ export function requireAuth(request, response, next)
         // Reject invalid or expired tokens
         if(["JsonWebTokenError", "TokenExpiredError", "NotBeforeError"].includes(error.name))
         {
-            return response.status(401).json({ error : "Invalid or expired authentication token." })
+            return response.status(HttpStatus.UNAUTHORIZED).json({ error : "Invalid or expired authentication token." })
         }
-        return response.status(500).json({ error : "Unable to authenticate request." })
+        return response.status(HttpStatus.INTERNAL_SERVER_ERROR).json({ error : "Unable to authenticate request." })
     }
     next()
 }

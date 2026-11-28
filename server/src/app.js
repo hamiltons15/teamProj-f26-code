@@ -4,6 +4,7 @@ import mongoose from "mongoose"
 import teamsRouter from "./routes/teams.js"
 import matchupsRouter from "./routes/matchups.js"
 import { authRouter } from "./routes/auth.js"
+import { HttpStatus } from "./http/status.js"
 
 const BODY_LIMIT = "16kb"
 
@@ -28,11 +29,11 @@ export function createApp(){
     app.use((error, request, response, next) => {
         if(error.type === "entity.parse.failed")
         {
-            return response.status(400).json({ error : "Invalid JSON body." })
+            return response.status(HttpStatus.BAD_REQUEST).json({ error : "Invalid JSON body." })
         }
         if(error.type === "entity.too.large")
         {
-            return response.status(413).json({ error : "Request body too large." })
+            return response.status(HttpStatus.PAYLOAD_TOO_LARGE).json({ error : "Request body too large." })
         }
         next(error)
     })

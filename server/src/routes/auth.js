@@ -5,6 +5,7 @@ import { requireDatabase } from "../middleware/requireDatabase.js"
 import { validateRegistration } from "../domain/validateRegistration.js"
 import { hashPassword, verifyPassword } from "../services/password.js"
 import { createToken } from "../services/token.js"
+import { HttpStatus } from "../http/status.js"
 
 export const authRouter = Router()
 
@@ -15,7 +16,7 @@ authRouter.post("/register", requireDatabase, async (request, response) => {
     const validationError = validateRegistration(username, password)
     if(validationError)
     {
-        return response.status(400).json({ error : validationError })
+        return response.status(HttpStatus.BAD_REQUEST).json({ error : validationError })
     }
 
     const normalizedUsername = username.trim().toLowerCase()
@@ -24,7 +25,7 @@ authRouter.post("/register", requireDatabase, async (request, response) => {
         // Check if the username is already taken
         if(await User.exists({ username : normalizedUsername }))
         {
-            return response.status(409).json({ error : "Username is already registered." })
+            return response.status(HttpStatus.CONFLICT).json({ error : "Username is already registered." })
         }
 
         // Hash the password before storing the user in the database
@@ -34,7 +35,7 @@ authRouter.post("/register", requireDatabase, async (request, response) => {
         await user.save()
 
         // Return the user information and token without the password hash
-        return response.status(201).json({
+        return response.status(HttpStatus.CREATED).json({
             message : "Account registered successfully.",
             user : { id : user.id, username : user.username },
             token
@@ -45,9 +46,9 @@ authRouter.post("/register", requireDatabase, async (request, response) => {
         // Handle duplicate usernames if two users register at the same time
         if(error.code === 11000)
         {
-            return response.status(409).json({ error : "Username is already registered." })
+            return response.status(HttpStatus.CONFLICT).json({ error : "Username is already registered." })
         }
-        return response.status(500).json({ error : "Unable to register account." })
+        return response.status(HttpStatus.INTERNAL_SERVER_ERROR).json({ error : "Unable to register account." })
     }
 })
 
@@ -57,12 +58,12 @@ authRouter.post("/login", requireDatabase, async (request, response) => {
     if(typeof username !== "string" || typeof password !== "string" ||
         !username.trim() || !password)
     {
-        return response.status(400).json({ error : "Username and password are required." })
+        return response.status(HttpStatus.BAD_REQUEST).json({ error : "Username and password are required." })
     }
     // Reject passwords that exceed the bcrypt byte limit
     if(Buffer.byteLength(password, "utf8") > 72)
     {
-        return response.status(400).json({ error : "Password must not exceed 72 UTF-8 bytes." })
+        return response.status(HttpStatus.BAD_REQUEST).json({ error : "Password must not exceed 72 UTF-8 bytes." })
     }
 
     const normalizedUsername = username.trim().toLowerCase()
@@ -73,12 +74,12 @@ authRouter.post("/login", requireDatabase, async (request, response) => {
         // Return the same error for an incorrect username or password
         if(!user || !(await verifyPassword(password, user.passwordHash)))
         {
-            return response.status(401).json({ error : "Invalid username or password." })
+            return response.status(HttpStatus.UNAUTHORIZED).json({ error : "Invalid username or password." })
         }
 
         // Create a token after verifying the login credentials
         const token = createToken(user.id)
-        return response.status(200).json({
+        return response.status(HttpStatus.OK).json({
             message : "Login successful.",
             user : { id : user.id, username : user.username },
             token
@@ -86,7 +87,7 @@ authRouter.post("/login", requireDatabase, async (request, response) => {
     }
     catch(error)
     {
-        return response.status(500).json({ error : "Unable to log in." })
+        return response.status(HttpStatus.INTERNAL_SERVER_ERROR).json({ error : "Unable to log in." })
     }
 })
 
@@ -98,15 +99,15 @@ authRouter.get("/me", requireDatabase, requireAuth, async (request, response) =>
         const user = await User.findById(request.userId)
         if(!user)
         {
-            return response.status(401).json({ error : "Authenticated user no longer exists." })
+            return response.status(HttpStatus.UNAUTHORIZED).json({ error : "Authenticated user no longer exists." })
         }
 
-        return response.status(200).json({
+        return response.status(HttpStatus.OK).json({
             user : { id : user.id, username : user.username }
         })
     }
     catch(error)
     {
-        return response.status(500).json({ error : "Unable to retrieve current user." })
+        return response.status(HttpStatus.INTERNAL_SERVER_ERROR).json({ error : "Unable to retrieve current user." })
     }
 })

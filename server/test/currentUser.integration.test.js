@@ -6,20 +6,41 @@ import jwt from "jsonwebtoken"
 import { startServer } from "../src/server.js"
 import { User } from "../src/models/User.js"
 import { createToken } from "../src/services/token.js"
+import { HttpStatus } from "../src/http/status.js"
 
 // Test the current user endpoint using a separate database
 test("current user integration", async (t) => {
     // Use a random test secret and database so existing users are not affected
     process.env.JWT_SECRET = randomBytes(32).toString("hex")
     const database = "bkb_auth_test_" + Date.now() + "_" + randomBytes(4).toString("hex")
-    const running = await startServer({
-        port : 0,
-        mongoUri : "mongodb://127.0.0.1:27017/" + database
-    })
-    // Close the server and database connection after testing
+    const mongoUri = "mongodb://127.0.0.1:27017/" + database
+    let running
+
+    // Close the server and drop the test database using a separate connection
     t.after(async () => {
-        await running.close()
+        try
+        {
+            if(running)
+            {
+                await running.close()
+            }
+        }
+        finally
+        {
+            const cleanupConnection = mongoose.createConnection(mongoUri)
+            try
+            {
+                await cleanupConnection.asPromise()
+                await cleanupConnection.dropDatabase()
+            }
+            finally
+            {
+                await cleanupConnection.close()
+            }
+        }
     })
+
+    running = await startServer({ port : 0, mongoUri })
 
     const base = "http://127.0.0.1:" + running.port
     // Send a JSON request to the authentication API
@@ -35,10 +56,10 @@ test("current user integration", async (t) => {
     // Register and log in a test user to get both tokens
     const credentials = { username : "CurrentUser", password : "ExamplePassword123" }
     const registered = await post("register", credentials)
-    assert.equal(registered.status, 201)
+    assert.equal(registered.status, HttpStatus.CREATED)
     const account = await registered.json()
     const loggedIn = await post("login", credentials)
-    assert.equal(loggedIn.status, 200)
+    assert.equal(loggedIn.status, HttpStatus.OK)
     const login = await loggedIn.json()
     // Create test tokens with different claims and signing options
     const sign = (claims = {}, options = {}, secret = process.env.JWT_SECRET) =>
@@ -51,11 +72,11 @@ test("current user integration", async (t) => {
         for(const token of [account.token, login.token])
         {
             const response = await me("Bearer " + token)
-            assert.equal(response.status, 200)
+            assert.equal(response.status, HttpStatus.OK)
             assert.deepEqual(await response.json(), { user : account.user })
         }
         const response = await me("bearer " + login.token)
-        assert.equal(response.status, 200)
+        assert.equal(response.status, HttpStatus.OK)
         assert.deepEqual(await response.json(), { user : account.user })
     })
 
@@ -63,7 +84,7 @@ test("current user integration", async (t) => {
         for(const header of [undefined, "Bearer", "Bearer ", "Basic abc", "Bearer one two"])
         {
             const response = await me(header)
-            assert.equal(response.status, 401)
+            assert.equal(response.status, HttpStatus.UNAUTHORIZED)
             assert.deepEqual(await response.json(), { error : "Authentication required." })
         }
     })
@@ -75,7 +96,7 @@ test("current user integration", async (t) => {
         for(const token of ["not-a-jwt", parts.join("."), sign({}, {}, randomBytes(32).toString("hex"))])
         {
             const response = await me("Bearer " + token)
-            assert.equal(response.status, 401)
+            assert.equal(response.status, HttpStatus.UNAUTHORIZED)
             assert.deepEqual(await response.json(), { error : "Invalid or expired authentication token." })
         }
     })
@@ -84,7 +105,7 @@ test("current user integration", async (t) => {
         for(const token of [sign({}, { expiresIn : -1 }), sign({}, { notBefore : "1h" })])
         {
             const response = await me("Bearer " + token)
-            assert.equal(response.status, 401)
+            assert.equal(response.status, HttpStatus.UNAUTHORIZED)
             assert.deepEqual(await response.json(), { error : "Invalid or expired authentication token." })
         }
     })
@@ -93,7 +114,7 @@ test("current user integration", async (t) => {
         for(const options of [{ issuer : "wrong" }, { audience : "wrong" }, { algorithm : "HS384" }])
         {
             const response = await me("Bearer " + sign({}, options))
-            assert.equal(response.status, 401)
+            assert.equal(response.status, HttpStatus.UNAUTHORIZED)
             assert.deepEqual(await response.json(), { error : "Invalid or expired authentication token." })
         }
     })
@@ -107,7 +128,7 @@ test("current user integration", async (t) => {
             sign({ sub : 123 }), noExpiration])
         {
             const response = await me("Bearer " + token)
-            assert.equal(response.status, 401)
+            assert.equal(response.status, HttpStatus.UNAUTHORIZED)
             assert.deepEqual(await response.json(), { error : "Invalid authentication token." })
         }
     })
@@ -115,13 +136,13 @@ test("current user integration", async (t) => {
     await t.test("rejects tokens for nonexistent or deleted users", async () => {
         const missing = createToken(new mongoose.Types.ObjectId())
         const response = await me("Bearer " + missing)
-        assert.equal(response.status, 401)
+        assert.equal(response.status, HttpStatus.UNAUTHORIZED)
         assert.deepEqual(await response.json(), { error : "Authenticated user no longer exists." })
 
         // Delete the test user and check that their token no longer works on this endpoint
         await User.deleteOne({ _id : account.user.id })
         const deleted = await me("Bearer " + login.token)
-        assert.equal(deleted.status, 401)
+        assert.equal(deleted.status, HttpStatus.UNAUTHORIZED)
         assert.deepEqual(await deleted.json(), { error : "Authenticated user no longer exists." })
     })
 
@@ -129,7 +150,7 @@ test("current user integration", async (t) => {
     await t.test("rejects current user lookup when database is disconnected", async () => {
         await mongoose.disconnect()
         const response = await me("Bearer " + login.token)
-        assert.equal(response.status, 503)
+        assert.equal(response.status, HttpStatus.SERVICE_UNAVAILABLE)
         assert.deepEqual(await response.json(), { error : "Database unavailable." })
     })
 })
